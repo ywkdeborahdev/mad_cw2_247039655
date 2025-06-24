@@ -1,13 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, ScrollView } from 'react-native';
-import { PaperProvider, Button, TextInput, Text, Divider, Title } from 'react-native-paper'; // Import Button and TextInput
+import { StyleSheet, View, ScrollView, Image } from 'react-native';
+import { PaperProvider, Button, TextInput, Text, Divider, Title, HelperText } from 'react-native-paper';
 import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { storeAuthToken, storeUserInfo } from '../utils/asyncStorage'; // Import your utility functions
-import theme from '../theme/shared-theme'; // Import your shared theme
+import { storeAuthToken, storeUserInfo } from '../utils/asyncStorage';
+import theme from '../theme/shared-theme';
+import bcrypt from 'bcryptjs';
 // @ts-ignore
-import { BACKEND_URL } from '@env';
-
+import { BACKEND_URL, SALT_ROUND } from '@env';
 
 export default function RegisterScreen() {
     const [username, setUsername] = useState<string>('');
@@ -15,6 +15,7 @@ export default function RegisterScreen() {
     const [password, setPassword] = useState<string>('');
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string>(''); // State to hold error messages
     const navigation = useNavigation();
 
     const togglePasswordVisibility = () => {
@@ -23,54 +24,54 @@ export default function RegisterScreen() {
 
     const handleRegister = async (): Promise<void> => {
         setLoading(true);
-        console.log('Registering user:', { username, email, password });
+        setError(''); // Clear previous errors
         try {
+            const hashedPassword = await bcrypt.hash(password, SALT_ROUND);
             const response = await fetch(`http://${BACKEND_URL}/users/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    username,
-                    email,
-                    password
-                })
+                body: JSON.stringify({ username, email, hashedPassword })
             });
 
-            const { data } = await response.json();
-            const { newUser, token } = data;
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'An unknown error occurred.');
+            }
+
+            const { newUser, token } = result.data;
             if (token) {
-                // Store the token in AsyncStorage
                 await storeAuthToken(token);
                 await storeUserInfo(newUser);
-
-                console.log('Authentication data stored successfully');
+                navigation.navigate('home' as never);
             }
-            navigation.navigate('home');
-        } catch (error) {
-            console.error('Register error:', error);
+        } catch (err: any) {
+            setError(err.message); // Set the error message to display in the UI
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleSignIn = async () => {
-        try {
-            // Add your Google sign-in logic here
-            console.log('Google sign-in pressed');
-        } catch (error) {
-            console.error('Google sign-in error:', error);
-        }
+        // ... implementation
     };
 
     const navigateToLogin = () => {
-        navigation.navigate('Login'); // Adjust this to your actual register screen name
+        navigation.navigate('Login' as never);
     };
 
     return (
         <PaperProvider theme={theme}>
             <View style={styles.container}>
                 <ScrollView contentContainerStyle={styles.container}>
+                    <View style={styles.logoContainer}>
+                        <Image
+                            source={require('../assets/wellness.png')}
+                            style={{ width: 50, height: 50 }}
+                        />
+                    </View>
                     <Title style={styles.title}>Wellness App</Title>
                     <Text style={styles.subtitle}>Create an account to start your journey</Text>
 
@@ -79,9 +80,9 @@ export default function RegisterScreen() {
                         value={username}
                         onChangeText={setUsername}
                         mode="outlined"
-                        keyboardType="email-address"
                         autoCapitalize="none"
                         style={styles.input}
+                        error={!!error}
                         left={<TextInput.Icon icon="account" />}
                     />
 
@@ -93,6 +94,7 @@ export default function RegisterScreen() {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         style={styles.input}
+                        error={!!error}
                         left={<TextInput.Icon icon="email" />}
                     />
 
@@ -103,15 +105,20 @@ export default function RegisterScreen() {
                         mode="outlined"
                         secureTextEntry={!showPassword}
                         style={styles.input}
+                        error={!!error}
                         left={<TextInput.Icon icon="lock" />}
-                        right={<TextInput.Icon icon={showPassword ? "eye-off" : "eye"} onPress={togglePasswordVisibility} />}
+                        right={<TextInput.Icon icon={showPassword ? "eye" : "eye-off"} onPress={togglePasswordVisibility} />}
                     />
+
+                    <HelperText type="error" visible={!!error} style={styles.errorText}>
+                        {error}
+                    </HelperText>
 
                     <Button
                         mode="contained"
                         onPress={handleRegister}
                         loading={loading}
-                        disabled={!email || !password || loading}
+                        disabled={!username || !email || !password || loading}
                         style={styles.signInButton}
                         contentStyle={styles.buttonContent}
                     >
@@ -159,17 +166,8 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: '#f5f5f5',
     },
-    card: {
-        padding: 20,
-        borderRadius: 12,
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+    logoContainer: {
+        alignItems: 'center'
     },
     title: {
         fontSize: 28,
@@ -185,8 +183,12 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     input: {
-        marginBottom: 16,
+        marginBottom: 4,
         backgroundColor: 'white',
+    },
+    errorText: {
+        fontSize: 14,
+        marginBottom: 10,
     },
     signInButton: {
         marginTop: 10,

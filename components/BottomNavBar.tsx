@@ -39,16 +39,16 @@ const BottomNavBar: React.FC = () => {
             unfocusedIcon: 'home-outline'
         },
         {
-            key: 'analytics',
-            title: 'Analytics',
-            focusedIcon: 'chart-line',
-            unfocusedIcon: 'chart-line-variant'
-        },
-        {
             key: 'photos',
             title: 'Photos',
             focusedIcon: 'image-multiple',
             unfocusedIcon: 'image'
+        },
+        {
+            key: 'analytics',
+            title: 'Analytics',
+            focusedIcon: 'chart-line',
+            unfocusedIcon: 'chart-line-variant'
         },
         // {
         //     key: 'workouts',

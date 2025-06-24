@@ -13,7 +13,8 @@ import {
     BadRequestResponse,
     InternalServerErrorResponse,
     SuccessResponse,
-    UnauthorizedResponse
+    UnauthorizedResponse,
+    ConflictResponse
 } from '../utils/HttpResponse';
 const { db } = require('../../firebaseBackend');
 import { collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where } from "firebase/firestore";
@@ -27,6 +28,36 @@ import verifyToken from '../middleware/verifyToken'; // Assuming you have a midd
 const router = Router();
 const auth = getAuth();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Helper function to handle Firebase Auth errors
+const handleAuthError = (res: Response, error: any) => {
+    // Log the original error for debugging purposes
+    console.error('Firebase Auth Error:', error.code, error.message);
+
+    if (error.code) {
+        switch (error.code) {
+            case 'auth/email-already-in-use':
+                const conflict = new ConflictResponse('An account with this email address already exists.');
+                return res.status(conflict.statusCode).json(conflict.toJSON());
+            case 'auth/wrong-password':
+            case 'auth/user-not-found':
+            case 'auth/invalid-credential':
+                const unauthorized = new UnauthorizedResponse('Invalid email or password. Please try again.');
+                return res.status(unauthorized.statusCode).json(unauthorized.toJSON());
+            case 'auth/invalid-email':
+                const badEmail = new BadRequestResponse('Please enter a valid email address.');
+                return res.status(badEmail.statusCode).json(badEmail.toJSON());
+            case 'auth/weak-password':
+                const badPassword = new BadRequestResponse('Password is too weak. It should be at least 6 characters long.');
+                return res.status(badPassword.statusCode).json(badPassword.toJSON());
+            default:
+                const defaultError = new InternalServerErrorResponse('An unexpected error occurred. Please try again.');
+                return res.status(defaultError.statusCode).json(defaultError.toJSON());
+        }
+    }
+    const serverError = new InternalServerErrorResponse(error);
+    return res.status(serverError.statusCode).json(serverError.toJSON());
+};
 
 router.post('/checkToken', verifyToken, async (req: Request, res: Response): Promise<void> => {
     console.log('Check token request received:', req.body);
@@ -79,7 +110,9 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
-            throw new Error('User document not found');
+            // This case is unlikely if auth succeeds, but good for data consistency
+            handleAuthError(res, { code: 'auth/user-not-found' });
+            return;
         }
 
         const userData = userDoc.data();
@@ -93,9 +126,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         return;
 
     } catch (error) {
-        const internalServerErrorResponse = new InternalServerErrorResponse(error);
-        res.status(internalServerErrorResponse.statusCode).json(internalServerErrorResponse.toJSON());
-        return;
+        handleAuthError(res, error);
     }
 });
 
@@ -148,9 +179,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
         return;
 
     } catch (error) {
-        const internalServerErrorResponse = new InternalServerErrorResponse(error);
-        res.status(internalServerErrorResponse.statusCode).json(internalServerErrorResponse.toJSON());
-        return;
+        handleAuthError(res, error);
     }
 });
 
