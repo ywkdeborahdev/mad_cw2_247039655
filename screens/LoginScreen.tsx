@@ -25,11 +25,11 @@ export default function LoginScreen() {
         setLoading(true);
         setError(''); // Clear previous errors
         try {
-            const hashedPassword = await bcrypt.hash(password, SALT_ROUND);
+            // const hashedPassword = await bcrypt.hash(password, SALT_ROUND);
             const response = await fetch(`http://${BACKEND_URL}/users/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, hashedPassword })
+                body: JSON.stringify({ email, password })
             });
 
             const result = await response.json();
@@ -115,7 +115,7 @@ export default function LoginScreen() {
 
                     <Divider style={styles.divider} />
 
-                    <Button
+                    {/* <Button
                         mode="outlined"
                         onPress={handleGoogleSignIn}
                         icon="google"
@@ -125,7 +125,7 @@ export default function LoginScreen() {
                         textColor="#db4437"
                     >
                         Sign in with Google
-                    </Button>
+                    </Button> */}
 
                     <View style={styles.noAccountContainer}>
                         <Text style={styles.noAccountText}>No account? </Text>

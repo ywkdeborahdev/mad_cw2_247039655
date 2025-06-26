@@ -22,6 +22,7 @@ import {
     Portal
 } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
+import * as Device from 'expo-device';
 import * as Location from 'expo-location';
 import { Pedometer } from 'expo-sensors';
 import theme from '../theme/shared-theme';
@@ -54,6 +55,7 @@ const HomeScreen: React.FC = () => {
     // New state for Photo of the Day
     const [photoOfTheDay, setPhotoOfTheDay] = useState<PhotoOfTheDay | null>(null);
     const [showPhotoDialog, setShowPhotoDialog] = useState<boolean>(false);
+    const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
     const [photoCaption, setPhotoCaption] = useState<string>('');
     const [photoLocation, setPhotoLocation] = useState<string>('');
     const [uploadingPhoto, setUploadingPhoto] = useState<boolean>(false);
@@ -171,7 +173,7 @@ const HomeScreen: React.FC = () => {
             }
             return false;
         } catch (error: any) {
-            console.error('Permission check failed:', error);
+            // console.error('Permission check failed:', error);
             if (error.code === 'E_MOTION_UNAVAILABLE') {
                 setPermissionStatus('denied');
                 Alert.alert(
@@ -186,12 +188,26 @@ const HomeScreen: React.FC = () => {
 
     const getCurrentLocation = async (): Promise<string> => {
         try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                return 'Location not available';
+            // 1. Check if location services are enabled on the device
+            const enabled = await Location.hasServicesEnabledAsync();
+            if (!enabled) {
+                Alert.alert('Location Services Disabled', 'Please enable location services in your device settings.');
+                return 'Location not enabled';
             }
 
-            const location = await Location.getCurrentPositionAsync({});
+            // 2. Request permission from the user
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'Location permission is needed to tag your photo.');
+                return 'Permission not granted';
+            }
+
+            // 3. Get the location with a timeout
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+
+            // 4. Reverse geocode to get a human-readable address
             const reverseGeocode = await Location.reverseGeocodeAsync({
                 latitude: location.coords.latitude,
                 longitude: location.coords.longitude,
@@ -201,9 +217,13 @@ const HomeScreen: React.FC = () => {
                 const { city, region, country } = reverseGeocode[0];
                 return `${city}, ${region}, ${country}`;
             }
-            return 'Unknown location';
-        } catch (error) {
+            return 'Location found'; // Fallback if geocoding fails
+        } catch (error: any) {
             console.error('Error getting location:', error);
+            // Handle specific errors like timeout
+            if (error.code === 'E_LOCATION_TIMEOUT') {
+                return 'Could not get location in time';
+            }
             return 'Location unavailable';
         }
     };
@@ -224,17 +244,7 @@ const HomeScreen: React.FC = () => {
             });
 
             if (!result.canceled && result.assets[0]) {
-                const location = await getCurrentLocation();
-                setPhotoLocation(location);
-                setShowPhotoDialog(true);
-
-                // Temporarily store the image URI
-                setPhotoOfTheDay({
-                    photoURL: result.assets[0].uri,
-                    photoLocation: location,
-                    photoCaption: '',
-                    date: new Date().toISOString().split('T')[0]
-                });
+                openPhotoDialog(result.assets[0].uri);
             }
         } catch (error) {
             console.error('Error picking photo:', error);
@@ -258,16 +268,7 @@ const HomeScreen: React.FC = () => {
             });
 
             if (!result.canceled && result.assets[0]) {
-                const location = await getCurrentLocation();
-                setPhotoLocation(location);
-                setShowPhotoDialog(true);
-
-                setPhotoOfTheDay({
-                    photoURL: result.assets[0].uri,
-                    photoLocation: location,
-                    photoCaption: '',
-                    date: new Date().toISOString().split('T')[0]
-                });
+                openPhotoDialog(result.assets[0].uri);
             }
         } catch (error) {
             console.error('Error taking photo:', error);
@@ -276,15 +277,13 @@ const HomeScreen: React.FC = () => {
     };
 
     const uploadPhotoOfTheDay = async (): Promise<void> => {
-        if (!photoOfTheDay) return;
+        if (!selectedPhotoUri) return;
 
+        setUploadingPhoto(true);
         try {
-            setUploadingPhoto(true);
-
-            // Create FormData for image upload
             const formData = new FormData();
             formData.append('photoOfTheDay', {
-                uri: photoOfTheDay.photoURL,
+                uri: selectedPhotoUri,
                 type: 'image/jpeg',
                 name: 'photo-of-the-day.jpg',
             } as any);
@@ -303,21 +302,18 @@ const HomeScreen: React.FC = () => {
 
             const result = await response.json();
 
-            if (result.success) {
-                setPhotoOfTheDay({
-                    ...photoOfTheDay,
-                    photoCaption: photoCaption,
-                    photoLocation: photoLocation
-                });
+            if (response.ok) {
+                getTodayPhotoOfTheDay();
                 setShowPhotoDialog(false);
                 setPhotoCaption('');
-                Alert.alert('Success', 'Photo of the day uploaded successfully!');
+                setSelectedPhotoUri(null);
+                Alert.alert('Success', 'Photo of the day uploaded!');
             } else {
-                throw new Error(result.error || 'Failed to upload photo');
+                throw new Error(result.message || 'Failed to upload photo');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error uploading photo:', error);
-            Alert.alert('Error', 'Failed to upload photo of the day');
+            Alert.alert('Error', error.message || 'Failed to upload photo of the day');
         } finally {
             setUploadingPhoto(false);
         }
@@ -341,6 +337,11 @@ const HomeScreen: React.FC = () => {
         } catch (error) {
             console.error('Error getting today\'s photo:', error);
         }
+    };
+
+    const openPhotoDialog = (imageUri: string) => {
+        setSelectedPhotoUri(imageUri); // Set the URI
+        setShowPhotoDialog(true);      // THEN show the dialog
     };
 
 
@@ -380,7 +381,19 @@ const HomeScreen: React.FC = () => {
                 subscription.remove();
             }
         };
-    }, [isPedometerAvailable]); // Only when pedometer availability changes
+    }, [isPedometerAvailable]);
+
+    useEffect(() => {
+        const fetchLocation = async () => {
+            setPhotoLocation('Fetching location...');
+            const location = await getCurrentLocation();
+            setPhotoLocation(location);
+        };
+
+        if (showPhotoDialog && selectedPhotoUri) {
+            fetchLocation();
+        }
+    }, [showPhotoDialog, selectedPhotoUri]);
 
 
     return (
@@ -540,6 +553,7 @@ const HomeScreen: React.FC = () => {
                         <Dialog visible={showPhotoDialog} onDismiss={() => setShowPhotoDialog(false)}>
                             <Dialog.Title>Add Photo of the Day</Dialog.Title>
                             <Dialog.Content>
+                                {selectedPhotoUri && <Image source={{ uri: selectedPhotoUri }} style={styles.dialogImage} />}
                                 <TextInput
                                     label="Caption"
                                     value={photoCaption}
@@ -787,6 +801,12 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         flex: 1,
+    },
+    dialogImage: {
+        width: '100%',
+        height: 200,
+        borderRadius: 8,
+        marginBottom: 16,
     }
 });
 
