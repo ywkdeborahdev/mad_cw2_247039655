@@ -114,4 +114,33 @@ const removeAuthToken = async (): Promise<void> => {
     }
 };
 
-export { storeAuthToken, storeUserInfo, getUserInfo, getAuthToken, removeAuthToken, storeUserSetting, getUserSetting, storeUserPhotoURL };
+const storeBiometricSetting = async (isEnabled: boolean): Promise<void> => {
+    try {
+        await AsyncStorage.setItem('biometricEnabled', JSON.stringify(isEnabled));
+    } catch (error) {
+        console.error('Error storing biometric setting:', error);
+    }
+};
+
+const getBiometricSetting = async (): Promise<boolean> => {
+    try {
+        const setting = await AsyncStorage.getItem('biometricEnabled');
+        return setting ? JSON.parse(setting) : false;
+    } catch (error) {
+        console.error('Error retrieving biometric setting:', error);
+        return false;
+    }
+};
+
+export {
+    storeAuthToken,
+    storeUserInfo,
+    getUserInfo,
+    getAuthToken,
+    removeAuthToken,
+    storeUserSetting,
+    getUserSetting,
+    storeUserPhotoURL,
+    storeBiometricSetting,
+    getBiometricSetting
+};

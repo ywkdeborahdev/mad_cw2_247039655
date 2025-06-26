@@ -54,9 +54,6 @@ export default function RegisterScreen() {
         }
     };
 
-    const handleGoogleSignIn = async () => {
-        // ... implementation
-    };
 
     const navigateToLogin = () => {
         navigation.navigate('Login' as never);
@@ -126,18 +123,6 @@ export default function RegisterScreen() {
                     </Button>
 
                     <Divider style={styles.divider} />
-
-                    {/* <Button
-                        mode="outlined"
-                        onPress={handleGoogleSignIn}
-                        icon="google"
-                        style={styles.googleButton}
-                        contentStyle={styles.buttonContent}
-                        buttonColor="#ffffff"
-                        textColor="#db4437"
-                    >
-                        Sign in with Google
-                    </Button> */}
 
                     <View style={styles.noAccountContainer}>
                         <Text style={styles.noAccountText}>Already have an account? </Text>

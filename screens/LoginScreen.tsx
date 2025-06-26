@@ -1,9 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, ScrollView, Image } from 'react-native';
+import { StyleSheet, View, ScrollView, Image, Platform } from 'react-native';
 import { PaperProvider, Button, TextInput, Text, Divider, Title, HelperText } from 'react-native-paper';
 import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { storeAuthToken, storeUserInfo } from '../utils/asyncStorage';
+import { storeAuthToken, storeUserInfo, getBiometricSetting } from '../utils/asyncStorage';
 import theme from '../theme/shared-theme';
 import bcrypt from 'bcryptjs';
 // @ts-ignore
@@ -15,10 +15,22 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string>(''); // State to hold error messages
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
 
     const togglePasswordVisibility = () => {
         setShowPassword(!showPassword);
+    };
+
+    const navigateToNextScreen = async () => {
+        const isBiometricEnabled = await getBiometricSetting();
+
+        // ONLY check for biometrics on Android
+        if (Platform.OS === 'android' && isBiometricEnabled) {
+            navigation.replace('BiometricLock');
+        } else {
+            // On iOS, or if the setting is off, go directly home
+            navigation.replace('home');
+        }
     };
 
     const handleSignIn = async () => {
@@ -35,7 +47,6 @@ export default function LoginScreen() {
             const result = await response.json();
 
             if (!response.ok) {
-                // If response is not successful, use the message from the backend
                 throw new Error(result.message || 'An unknown error occurred.');
             }
 
@@ -43,17 +54,13 @@ export default function LoginScreen() {
             if (token) {
                 await storeAuthToken(token);
                 await storeUserInfo(user);
-                navigation.navigate('home' as never);
+                await navigateToNextScreen();
             }
         } catch (err: any) {
-            setError(err.message); // Set the error message to display in the UI
+            setError(err.message);
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleGoogleSignIn = async () => {
-        // ... implementation
     };
 
     const navigateToRegister = () => {
@@ -114,18 +121,6 @@ export default function LoginScreen() {
                     </Button>
 
                     <Divider style={styles.divider} />
-
-                    {/* <Button
-                        mode="outlined"
-                        onPress={handleGoogleSignIn}
-                        icon="google"
-                        style={styles.googleButton}
-                        contentStyle={styles.buttonContent}
-                        buttonColor="#ffffff"
-                        textColor="#db4437"
-                    >
-                        Sign in with Google
-                    </Button> */}
 
                     <View style={styles.noAccountContainer}>
                         <Text style={styles.noAccountText}>No account? </Text>

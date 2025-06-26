@@ -28,7 +28,8 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "^5.4.1",
     "react-native-svg": "15.11.2",
-    "expo-device": "~7.1.4"
+    "expo-device": "~7.1.4",
+    "expo-local-authentication": "~16.0.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

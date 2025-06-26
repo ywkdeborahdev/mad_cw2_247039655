@@ -8,6 +8,7 @@ import HomeScreen from './screens/HomeScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import PhotosScreen from './screens/PhotosScreen';
 import AnalyticsScreen from './screens/AnalyticsScreen';
+import BiometricLockScreen from './screens/BiometricLockScreen';
 // You can customize your theme here
 
 const Stack = createStackNavigator();
@@ -34,6 +35,9 @@ export default function App() {
           headerLeft: () => null,
         }} />
         <Stack.Screen name="analytics" component={AnalyticsScreen} options={{
+          headerLeft: () => null,
+        }} />
+        <Stack.Screen name="BiometricLock" component={BiometricLockScreen} options={{
           headerLeft: () => null,
         }} />
       </Stack.Navigator>

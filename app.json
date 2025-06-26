@@ -18,11 +18,23 @@
         {
           "motionPermission": "Allow $(PRODUCT_NAME) to access your device motion for step tracking"
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID."
+        }
       ]
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.WellnessApp"
+      "bundleIdentifier": "com.anonymous.WellnessApp",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to allow you to select a photo of the day.",
+        "NSCameraUsageDescription": "This app needs access to your camera to allow you to take a photo of the day.",
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to tag where your photo of the day was taken.",
+        "NSFaceIDUsageDescription": "This app uses Face ID to secure your account and verify your identity after logging in."
+      }
     },
     "android": {
       "adaptiveIcon": {

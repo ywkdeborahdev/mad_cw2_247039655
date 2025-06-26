@@ -6,7 +6,9 @@ import {
     Alert,
     TouchableOpacity,
     Keyboard,
-    TouchableWithoutFeedback
+    TouchableWithoutFeedback,
+    ScrollView,
+    Platform
 } from 'react-native';
 import {
     Provider as PaperProvider,
@@ -18,11 +20,22 @@ import {
     IconButton,
     Dialog,
     Portal,
+    Switch,
+    Divider,
 } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
+import * as LocalAuthentication from 'expo-local-authentication';
 import theme from '../theme/shared-theme';
 import BottomNavBar from '../components/BottomNavBar';
-import { getUserInfo, getAuthToken, removeAuthToken, storeUserSetting, storeUserPhotoURL } from '../utils/asyncStorage';
+import {
+    getUserInfo,
+    getAuthToken,
+    removeAuthToken,
+    storeUserSetting,
+    storeUserPhotoURL,
+    storeBiometricSetting,
+    getBiometricSetting
+} from '../utils/asyncStorage';
 import { useNavigation } from '@react-navigation/native';
 import { UserCredential, User } from '../modelsFrontend';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -45,6 +58,10 @@ const ProfileScreen: React.FC = () => {
     const [showImageDialog, setShowImageDialog] = useState<boolean>(false);
     const [showLogoutDialog, setShowLogoutDialog] = useState<boolean>(false);
     const navigation = useNavigation();
+
+    const [isBiometricEnabled, setIsBiometricEnabled] = useState<boolean>(false);
+    const [hasBiometricHardware, setHasBiometricHardware] = useState<boolean>(false);
+
 
     const dismissKeyboard = () => {
         Keyboard.dismiss();
@@ -254,159 +271,224 @@ const ProfileScreen: React.FC = () => {
     };
 
     useEffect(() => {
-        const fetchInfo = async () => {
+        const loadSettings = async () => {
+            // Check for biometric hardware
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            console.log('has HARDWARE?', hasHardware);
+            setHasBiometricHardware(hasHardware);
+
+            // Load saved settings
             const user = await getUserInfo();
-            setWaterTargetText(user?.waterTarget || '8');
-            setStepsTargetText(user?.stepsTarget || '10000');
-            setUserInfo(user);
+            const biometricSetting = await getBiometricSetting();
+
+            if (user) {
+                setUserInfo(user);
+                setWaterTargetText(user.waterTarget || '8');
+                setStepsTargetText(user.stepsTarget || '10000');
+            }
+            if (Platform.OS === 'android' && hasHardware) {
+                setIsBiometricEnabled(biometricSetting);
+            }
         };
-        fetchInfo();
+        loadSettings();
     }, []);
+
+    const handleToggleBiometrics = async () => {
+        // This function will now only be effectively called on Android
+        const newValue = !isBiometricEnabled;
+
+        if (newValue) {
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+            if (!isEnrolled) {
+                Alert.alert(
+                    'No Biometrics Enrolled',
+                    'You have not set up fingerprint or face unlock on this device.'
+                );
+                return;
+            }
+        }
+
+        setIsBiometricEnabled(newValue);
+        await storeBiometricSetting(newValue);
+    };
 
     return (
         <PaperProvider theme={theme}>
             <SafeAreaView style={styles.safeArea}>
-                <TouchableWithoutFeedback onPress={dismissKeyboard}>
-                    <View style={styles.container}>
-                        {/* Profile Avatar Section */}
-                        <View style={styles.avatarSection}>
-                            <TouchableOpacity
-                                onPress={() => setShowImageDialog(true)}
-                                disabled={loading}
-                            >
-                                {userInfo?.photoURL ? (
-                                    <Avatar.Image
-                                        size={120}
-                                        source={{ uri: userInfo?.photoURL }}
-                                        style={styles.avatar}
-                                    />
-                                ) : (
-                                    <Avatar.Text
-                                        size={120}
-                                        label={userInfo?.displayName?.charAt(0).toUpperCase() || 'U'}
-                                        style={styles.avatar}
-                                    />
-                                )}
-                                <View style={styles.cameraIcon}>
-                                    <IconButton
-                                        icon="camera"
-                                        size={20}
-                                        iconColor="#fff"
-                                        style={styles.cameraButton}
-                                    />
-                                </View>
-                            </TouchableOpacity>
-                            <Text style={styles.userName}>{userInfo?.displayName || 'User'}</Text>
-                            <Text style={styles.userEmail}>{userInfo?.email || ''}</Text>
-                        </View>
-
-                        {/* Water Target Card */}
-                        <Card style={styles.settingCard}>
-                            <Card.Content>
-                                <Text style={styles.cardTitle}>Daily Water Target</Text>
-                                <View style={styles.settingRow}>
-                                    <TextInput
-                                        mode="outlined"
-                                        value={waterTargetText}
-                                        onChangeText={(text) => setWaterTargetText(text || '')}
-                                        keyboardType="numeric"
-                                        style={styles.targetInput}
-                                        right={<TextInput.Affix text="glasses" />}
-                                    />
-                                    <Button
-                                        mode="contained"
-                                        onPress={handleWaterTargetChange}
-                                        loading={loading}
-                                        style={styles.updateButton}
-                                    >
-                                        Update
-                                    </Button>
-                                </View>
-                            </Card.Content>
-                        </Card>
-
-                        {/* Step Target Card */}
-                        <Card style={styles.settingCard}>
-                            <Card.Content>
-                                <Text style={styles.cardTitle}>Daily Step Target</Text>
-                                <View style={styles.settingRow}>
-                                    <TextInput
-                                        mode="outlined"
-                                        value={stepsTargetText}
-                                        onChangeText={(text) => setStepsTargetText(text || '')}
-                                        keyboardType="numeric"
-                                        style={styles.targetInput}
-                                        right={<TextInput.Affix text="steps" />}
-                                    />
-                                    <Button
-                                        mode="contained"
-                                        onPress={handleStepTargetChange}
-                                        loading={loading}
-                                        style={styles.updateButton}
-                                    >
-                                        Update
-                                    </Button>
-                                </View>
-                            </Card.Content>
-                        </Card>
-
-                        {/* Logout Button */}
-                        <Button
-                            mode="outlined"
-                            onPress={() => setShowLogoutDialog(true)}
-                            icon="logout"
-                            style={styles.logoutButton}
-                            textColor="#FF5722"
-                        >
-                            Logout
-                        </Button>
-
-                        {/* Image Selection Dialog */}
-                        <Portal>
-                            <Dialog visible={showImageDialog} onDismiss={() => setShowImageDialog(false)}>
-                                <Dialog.Title>Select Profile Photo</Dialog.Title>
-                                <Dialog.Content>
-                                    <View style={styles.dialogButtons}>
-                                        <Button
-                                            mode="outlined"
-                                            onPress={() => pickImage(true)}
+                <ScrollView>
+                    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+                        <View style={styles.container}>
+                            {/* Profile Avatar Section */}
+                            <View style={styles.avatarSection}>
+                                <TouchableOpacity
+                                    onPress={() => setShowImageDialog(true)}
+                                    disabled={loading}
+                                >
+                                    {userInfo?.photoURL ? (
+                                        <Avatar.Image
+                                            size={120}
+                                            source={{ uri: userInfo?.photoURL }}
+                                            style={styles.avatar}
+                                        />
+                                    ) : (
+                                        <Avatar.Text
+                                            size={120}
+                                            label={userInfo?.displayName?.charAt(0).toUpperCase() || 'U'}
+                                            style={styles.avatar}
+                                        />
+                                    )}
+                                    <View style={styles.cameraIcon}>
+                                        <IconButton
                                             icon="camera"
-                                            style={styles.dialogButton}
-                                        >
-                                            Take Photo
-                                        </Button>
-                                        <Button
+                                            size={20}
+                                            iconColor="#fff"
+                                            style={styles.cameraButton}
+                                        />
+                                    </View>
+                                </TouchableOpacity>
+                                <Text style={styles.userName}>{userInfo?.displayName || 'User'}</Text>
+                                <Text style={styles.userEmail}>{userInfo?.email || ''}</Text>
+                            </View>
+
+                            {hasBiometricHardware && (
+                                <Card style={styles.settingCard}>
+                                    <Card.Content>
+                                        <Text style={styles.cardTitle}>Security</Text>
+                                        <View style={styles.securityRow}>
+                                            <Text
+                                                style={[
+                                                    styles.settingLabel,
+                                                    Platform.OS === 'ios' && styles.disabledText
+                                                ]}
+                                            >
+                                                Require Biometric Lock
+                                            </Text>
+                                            <Switch
+                                                value={isBiometricEnabled}
+                                                onValueChange={handleToggleBiometrics}
+                                                // Disable the switch on iOS
+                                                disabled={Platform.OS === 'ios'}
+                                            />
+                                        </View>
+                                        {Platform.OS === 'ios' && (
+                                            <Text style={styles.iosNote}>
+                                                This feature is not available in Expo Go on iOS but will be active in the final app.
+                                            </Text>
+                                        )}
+                                    </Card.Content>
+                                </Card>
+                            )}
+
+
+
+                            {/* Water Target Card */}
+                            <Card style={styles.settingCard}>
+                                <Card.Content>
+                                    <Text style={styles.cardTitle}>Daily Water Target</Text>
+                                    <View style={styles.settingRow}>
+                                        <TextInput
                                             mode="outlined"
-                                            onPress={() => pickImage(false)}
-                                            icon="image"
-                                            style={styles.dialogButton}
+                                            value={waterTargetText}
+                                            onChangeText={(text) => setWaterTargetText(text || '')}
+                                            keyboardType="numeric"
+                                            style={styles.targetInput}
+                                            right={<TextInput.Affix text="glasses" />}
+                                        />
+                                        <Button
+                                            mode="contained"
+                                            onPress={handleWaterTargetChange}
+                                            loading={loading}
+                                            style={styles.updateButton}
                                         >
-                                            Choose from Gallery
+                                            Update
                                         </Button>
                                     </View>
-                                </Dialog.Content>
-                                <Dialog.Actions>
-                                    <Button onPress={() => setShowImageDialog(false)}>Cancel</Button>
-                                </Dialog.Actions>
-                            </Dialog>
-                        </Portal>
+                                </Card.Content>
+                            </Card>
 
-                        {/* Logout Confirmation Dialog */}
-                        <Portal>
-                            <Dialog visible={showLogoutDialog} onDismiss={() => setShowLogoutDialog(false)}>
-                                <Dialog.Title>Confirm Logout</Dialog.Title>
-                                <Dialog.Content>
-                                    <Text>Are you sure you want to logout?</Text>
-                                </Dialog.Content>
-                                <Dialog.Actions>
-                                    <Button onPress={() => setShowLogoutDialog(false)}>Cancel</Button>
-                                    <Button onPress={handleLogout} textColor="#FF5722">Logout</Button>
-                                </Dialog.Actions>
-                            </Dialog>
-                        </Portal>
-                    </View>
+                            {/* Step Target Card */}
+                            <Card style={styles.settingCard}>
+                                <Card.Content>
+                                    <Text style={styles.cardTitle}>Daily Step Target</Text>
+                                    <View style={styles.settingRow}>
+                                        <TextInput
+                                            mode="outlined"
+                                            value={stepsTargetText}
+                                            onChangeText={(text) => setStepsTargetText(text || '')}
+                                            keyboardType="numeric"
+                                            style={styles.targetInput}
+                                            right={<TextInput.Affix text="steps" />}
+                                        />
+                                        <Button
+                                            mode="contained"
+                                            onPress={handleStepTargetChange}
+                                            loading={loading}
+                                            style={styles.updateButton}
+                                        >
+                                            Update
+                                        </Button>
+                                    </View>
+                                </Card.Content>
+                            </Card>
 
-                </TouchableWithoutFeedback>
+                            {/* Logout Button */}
+                            <Button
+                                mode="outlined"
+                                onPress={() => setShowLogoutDialog(true)}
+                                icon="logout"
+                                style={styles.logoutButton}
+                                textColor="#FF5722"
+                            >
+                                Logout
+                            </Button>
+
+                            {/* Image Selection Dialog */}
+                            <Portal>
+                                <Dialog visible={showImageDialog} onDismiss={() => setShowImageDialog(false)}>
+                                    <Dialog.Title>Select Profile Photo</Dialog.Title>
+                                    <Dialog.Content>
+                                        <View style={styles.dialogButtons}>
+                                            <Button
+                                                mode="outlined"
+                                                onPress={() => pickImage(true)}
+                                                icon="camera"
+                                                style={styles.dialogButton}
+                                            >
+                                                Take Photo
+                                            </Button>
+                                            <Button
+                                                mode="outlined"
+                                                onPress={() => pickImage(false)}
+                                                icon="image"
+                                                style={styles.dialogButton}
+                                            >
+                                                Choose from Gallery
+                                            </Button>
+                                        </View>
+                                    </Dialog.Content>
+                                    <Dialog.Actions>
+                                        <Button onPress={() => setShowImageDialog(false)}>Cancel</Button>
+                                    </Dialog.Actions>
+                                </Dialog>
+                            </Portal>
+
+                            {/* Logout Confirmation Dialog */}
+                            <Portal>
+                                <Dialog visible={showLogoutDialog} onDismiss={() => setShowLogoutDialog(false)}>
+                                    <Dialog.Title>Confirm Logout</Dialog.Title>
+                                    <Dialog.Content>
+                                        <Text>Are you sure you want to logout?</Text>
+                                    </Dialog.Content>
+                                    <Dialog.Actions>
+                                        <Button onPress={() => setShowLogoutDialog(false)}>Cancel</Button>
+                                        <Button onPress={handleLogout} textColor="#FF5722">Logout</Button>
+                                    </Dialog.Actions>
+                                </Dialog>
+                            </Portal>
+                        </View>
+
+                    </TouchableWithoutFeedback>
+                </ScrollView>
                 <BottomNavBar />
             </SafeAreaView>
         </PaperProvider >
@@ -485,6 +567,25 @@ const styles = StyleSheet.create({
     dialogButton: {
         flex: 1,
     },
+    securityRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: responsiveSpacing(8),
+    },
+    settingLabel: {
+        fontSize: responsiveFontSize(16),
+        color: '#333',
+    },
+    disabledText: {
+        color: '#9E9E9E', // Grey out text on iOS
+    },
+    iosNote: {
+        fontSize: responsiveFontSize(12),
+        color: '#666',
+        marginTop: responsiveSpacing(8),
+        fontStyle: 'italic',
+    }
 });
 
 export default ProfileScreen;
