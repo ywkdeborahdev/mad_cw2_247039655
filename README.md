@@ -41,8 +41,7 @@ WellnessApp/
 ├── index.ts
 ├── package.json
 ├── tsconfig.json
-├── ios/
-└── android/
+└── ios/
 ```
 
 ## Getting Started
