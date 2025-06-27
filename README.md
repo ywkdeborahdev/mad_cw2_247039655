@@ -16,16 +16,23 @@ A cross-platform wellness tracking app built with React Native (Expo), TypeScrip
 
 ```
 .
+WellnessApp/
 ├── App.tsx
 ├── app.json
 ├── assets/
 ├── components/
+├── goEmotion/
+│   ├── emotion_service.py
 ├── modelsFrontend.ts
 ├── screens/
 ├── server/
-│   └── src/
-│       ├── app.ts
-│       └── routes/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── src/
+│   │   ├── app.ts
+│   │   ├── routes/
+│   │   └── ...
+│   └── tsconfig.json
 ├── theme/
 ├── utils/
 ├── .env
@@ -34,7 +41,8 @@ A cross-platform wellness tracking app built with React Native (Expo), TypeScrip
 ├── index.ts
 ├── package.json
 ├── tsconfig.json
-└── ios/
+├── ios/
+└── android/
 ```
 
 ## Getting Started
