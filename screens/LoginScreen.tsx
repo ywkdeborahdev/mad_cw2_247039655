@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { storeAuthToken, storeUserInfo, getBiometricSetting } from '../utils/asyncStorage';
 import theme from '../theme/shared-theme';
-import bcrypt from 'bcryptjs';
+
 // @ts-ignore
 import { BACKEND_URL, SALT_ROUND } from '@env';
 
@@ -35,9 +35,8 @@ export default function LoginScreen() {
 
     const handleSignIn = async () => {
         setLoading(true);
-        setError(''); // Clear previous errors
+        setError('');
         try {
-            // const hashedPassword = await bcrypt.hash(password, SALT_ROUND);
             const response = await fetch(`http://${BACKEND_URL}/users/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

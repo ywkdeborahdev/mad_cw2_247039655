@@ -41,9 +41,7 @@ const verifyToken = async (req: AuthenticatedRequest, res: Response, next: NextF
             iat: decodedToken.iat,
             exp: decodedToken.exp,
             firebase: decodedToken.firebase,
-            // idToken: idToken // if this is needed, uncomment this line
         };
-        console.log('Token verified successfully:', req.user);
 
         next(); // Continue to the next middleware/route handler
     } catch (error: any) {

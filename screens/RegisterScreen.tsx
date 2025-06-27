@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { storeAuthToken, storeUserInfo } from '../utils/asyncStorage';
 import theme from '../theme/shared-theme';
-// import bcrypt from 'bcryptjs';
+
 // @ts-ignore
 import { BACKEND_URL, SALT_ROUND } from '@env';
 
@@ -26,7 +26,6 @@ export default function RegisterScreen() {
         setLoading(true);
         setError(''); // Clear previous errors
         try {
-            // const hashedPassword = await bcrypt.hash(password, SALT_ROUND);
             const response = await fetch(`http://${BACKEND_URL}/users/register`, {
                 method: 'POST',
                 headers: {
@@ -45,7 +44,7 @@ export default function RegisterScreen() {
             if (token) {
                 await storeAuthToken(token);
                 await storeUserInfo(newUser);
-                navigation.navigate('home' as never);
+                navigation.navigate('profile' as never);
             }
         } catch (err: any) {
             setError(err.message); // Set the error message to display in the UI

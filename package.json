@@ -29,7 +29,9 @@
     "react-native-safe-area-context": "^5.4.1",
     "react-native-svg": "15.11.2",
     "expo-device": "~7.1.4",
-    "expo-local-authentication": "~16.0.4"
+    "expo-local-authentication": "~16.0.4",
+    "expo-notifications": "~0.31.3",
+    "@react-native-community/datetimepicker": "8.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

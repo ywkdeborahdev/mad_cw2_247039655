@@ -185,7 +185,7 @@ const ProfileScreen: React.FC = () => {
             Alert.alert('Invalid Target', 'Water target must be between 1 and 20 glasses');
             return;
         }
-        // await updateUserSettings({ waterTarget });
+
         try {
             setLoading(true);
             const response = await fetch(`http://${BACKEND_URL}/habit/water/settings`, {
@@ -215,7 +215,7 @@ const ProfileScreen: React.FC = () => {
         const token = await getAuthToken();
         const stepsTarget = parseInt(stepsTargetText);
         if (stepsTarget < 1000 || stepsTarget > 20000) {
-            Alert.alert('Invalid Target', 'Step target must be between 1,000 and 50,000 steps');
+            Alert.alert('Invalid Target', 'Step target must be between 1,000 and 20,000 steps');
             return;
         }
         try {
